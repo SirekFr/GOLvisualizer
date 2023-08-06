@@ -1,0 +1,3 @@
+numpy==1.25.2
+PyAudioWPatch==0.2.12.6
+pygame==2.5.0
