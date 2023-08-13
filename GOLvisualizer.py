@@ -7,11 +7,17 @@ import numpy as np
 
 
 def neighbours(current_x, current_y, area):
-    # find number of neighbours
-
+    """
+    Counts the number of surrounding alive neighbours
     # [-1][-1], [0][-1], [1][-1],
     # [-1][0],  [0][0],  [1][0],
     # [-1][1],  [0][1],  [1][1]
+
+    :param current_x:
+    :param current_y:
+    :param area:
+    :return: neighbour_count
+    """
     neighbour_count = 0
     for x in range(-1, 2):
         for y in range(-1, 2):
@@ -23,6 +29,13 @@ def neighbours(current_x, current_y, area):
 
 
 def is_alive(x, y, area):
+    """
+    Decides whether the cell is alive based on standard game of life rules
+    :param x:
+    :param y:
+    :param area:
+    :return:
+    """
     neighbour_count = neighbours(x, y, area)
 
     if area[x][y]:
@@ -39,7 +52,7 @@ RATE = 44100  # Sampling rate dependent on device
 CHUNK = int((1 / 60) * RATE)  # 1/30
 FORMAT = pyaudio.paInt16
 SCREEN_HEIGHT = 150
-SCREEN_WIDTH = int(CHUNK / 4)  # The chunk is mirrored, half of it suffices
+SCREEN_WIDTH = int(CHUNK / 2)  # The chunk contains 4 phases, half of one suffices
 
 
 def main():
@@ -51,7 +64,6 @@ def main():
 
     for i in range(0, numdevices):
         if (p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')) > 0:
-            # print("Input Device id ", i, " - ", p.get_device_info_by_host_api_device_index(0, i).get('name'))
             p.get_device_info_by_host_api_device_index(0, i).get('name')
     wasapi_info = p.get_host_api_info_by_type(pyaudio.paWASAPI)
 
@@ -76,6 +88,7 @@ def main():
                     )
 
     # cell arrays setup
+    #  + 2 allows for border buffer zone for neighbours()
     cells_current = [[False for i in range(int(SCREEN_HEIGHT) + 2)] for j in range(int(SCREEN_WIDTH) + 2)]
     cells_next = [[False for i in range(int(SCREEN_HEIGHT) + 2)] for j in range(int(SCREEN_WIDTH) + 2)]
 
@@ -92,21 +105,21 @@ def main():
 
     pygame.display.flip()
     time.sleep(1)
-
+    # main process/draw loop
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
         # process next frame
-        for x in range(0, size_x - 1):  # CHUNK + 1, SCREEN_HEIGHT + 1
+        for x in range(0, size_x - 1):
             for y in range(0, size_y - 1):
                 cells_next[x][y] = is_alive(x, y, cells_current)
 
         buff = stream.read(CHUNK)
         data = np.frombuffer(buff, dtype=np.int16)
-        fft_complex = np.fft.fft(data, n=CHUNK)
-        # fft_distance = np.zeros(len(fft_complex))
+        fft_complex = np.fft.fft(data, n=CHUNK)  # fast furrier transform
         max_val = sqrt(max(v.real * v.real + v.imag * v.imag for v in fft_complex)) + 1
+        # max of real numbers in max_val, +1 to avoid division by 0
         scale_value = SCREEN_HEIGHT / max_val
 
         # draw cells
